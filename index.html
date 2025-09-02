@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Guardião da Mata – Missão COP 30</title>
+<style>
+  :root{
+    --verde-escuro:#1b5e20;
+    --verde:#2e7d32;
+    --verde-claro:#66bb6a;
+    --bg:#e0f2f1;
+    --card:#fff;
+    --sombra:0 0 10px rgba(0,0,0,.1);
+  }
+  body{
+    margin:0; padding:20px; font-family:Arial, sans-serif; background:var(--bg); color:var(--verde);
+  }
+  h1{ text-align:center; color:var(--verde-escuro); margin:0 0 16px; font-size:2rem; }
+  #game{
+    max-width: 780px; margin:0 auto; background:var(--card); border-radius:12px; padding:18px; box-shadow:var(--sombra);
+  }
+
+  .topbar{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .progress-wrap{ flex:1; background:#e6f5e7; border-radius:999px; height:10px; overflow:hidden; }
+  .progress{ height:100%; width:0%; background:var(--verde-claro); transition:width .4s ease; }
+  .score{ font-weight:bold; color:var(--verde-escuro); }
+
+
+  .content{
+    display:grid; grid-template-columns: 1.2fr .8fr; gap:16px; align-items:start; margin-top:14px;
+  }
+  #story{ margin:0 0 10px; color:#245c27; }
+  .choices button, #startBtn, .nextBtn, .restartBtn{
+    display:block; width:100%; padding:12px; font-size:16px; border:none; border-radius:8px; cursor:pointer;
+    background:var(--verde-claro); color:#fff; margin:6px 0; transition:transform .05s ease;
+  }
+  .choices button:hover, #startBtn:hover, .nextBtn:hover, .restartBtn:hover{ filter:brightness(.95); }
+  .choices button:active, #startBtn:active, .nextBtn:active, .restartBtn:active{ transform:scale(.99); }
+  #startBtn{ background:var(--verde); font-size:18px; margin-top:8px; }
+
+  .mascoteBox{
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    position:relative; padding:8px 4px;
+  }
+  .mascoteBox img{
+    max-width:150px; width:100%; height:auto; user-select:none;
+    animation:float 3s ease-in-out infinite;
+  }
+  @keyframes float{ 0%{transform:translateY(0)} 50%{transform:translateY(-10px)} 100%{transform:translateY(0)} }
+
+  .balao{
+    background:#dcedc8; color:#274b1f; padding:12px 14px; border-radius:16px; max-width: 100%;
+    line-height:1.35; box-shadow:0 4px 8px rgba(0,0,0,.15); font-size:15px;
+  }
+  .balao::after{
+    content:""; position:absolute; width:0; height:0; border:10px solid transparent;
+    border-top-color:#dcedc8; top:-4px; left:22px; transform:translateY(-100%);
+  }
+
+.mascoteBox {
+  position: relative;
+}
+
+.mascoteBox img {
+  position: relative;
+  z-index: 1;
+}
+
+.balao {
+  position: relative; 
+  z-index: 3;
+}
+
+.balao::after {
+  z-index: 3;
+}
+
+  .feedback{ min-height:22px; font-weight:bold; margin-top:6px; }
+  .ok{ color:#2e7d32; } .nope{ color:#c62828; }
+
+  .jump{ animation:jump .6s ease; }
+  @keyframes jump{ 0%{transform:translateY(0)} 30%{transform:translateY(-12px)} 100%{transform:translateY(0)} }
+
+  .shake{ animation:shake .45s ease; }
+  @keyframes shake{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-6px); }
+    40%{ transform:translateX(6px); }
+    60%{ transform:translateX(-4px); }
+    80%{ transform:translateX(4px); }
+  }
+
+
+  @media (max-width: 700px){
+    body{ padding:12px; }
+    h1{ font-size:1.6rem; }
+    .content{ grid-template-columns: 1fr; }
+    .mascoteBox img{ max-width:120px; }
+  }
+</style>
+</head>
+<body>
+  <h1>🌱 Guardião da Mata – Missão COP 30 🌱</h1>
+  <div id="game">
+    <div class="topbar">
+      <div class="progress-wrap" aria-label="Progresso">
+        <div class="progress" id="progress"></div>
+      </div>
+      <div class="score" id="score">Pontuação: 0</div>
+    </div>
+
+    <p id="story">Bem-vindo! Você é o protetor da floresta designado pela COP 30. Sua missão é salvar a mata!</p>
+
+    <div class="content">
+      <div>
+        <div class="choices" id="choices"></div>
+        <div class="feedback" id="feedback" aria-live="polite"></div>
+        <button id="startBtn">Iniciar Missão</button>
+      </div>
+
+      <div class="mascoteBox">
+        <img id="mascote" src="mascote.png" alt="Jatobinho" draggable="false">
+        <div id="fala" class="balao" role="status">Olá, eu sou o Jatobinho! Vamos juntos proteger a natureza?</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+
+let etapa = 0;
+let sucesso = [];
+let pontuacao = 0;
+
+const story = document.getElementById("story");
+const choices = document.getElementById("choices");
+const feedback = document.getElementById("feedback");
+const scoreEl = document.getElementById("score");
+const progressEl = document.getElementById("progress");
+const startBtn = document.getElementById("startBtn");
+const fala = document.getElementById("fala");
+const mascote = document.getElementById("mascote");
+
+const falasOk = [
+  "Mandou bem! 🌟 A floresta agradece.",
+  "Isso aí! 🍃 Escolha consciente!",
+  "Excelente! 💚 Você pensou no coletivo.",
+  "Perfeito! 🌿 Somos guardiões!"
+];
+const falasNo = [
+  "Hmm… melhor repensar. 😕",
+  "Quase! Que tal tentar outra? 🤔",
+  "Isso pode prejudicar a mata. 😬",
+  "Ops! Vamos proteger melhor. 🚫"
+];
+const dicas = [
+  "Dica: envolver a comunidade fortalece a preservação.",
+  "Dica: energia solar é uma fonte limpa e renovável.",
+  "Dica: denunciar é mais seguro do que agir sozinho.",
+  "Dica: trilhas demarcadas evitam degradação."
+];
+
+function setMascote(humor){
+  const mapa = {
+    feliz: "mascote-feliz.png",
+    neutro: "mascote-neutro.png",
+    triste: "mascote-triste.png"
+  };
+  mascote.classList.remove("jump","shake");
+  if (humor === "feliz"){ mascote.classList.add("jump"); }
+  if (humor === "triste"){ mascote.classList.add("shake"); }
+  const srcNovo = mapa[humor] || "mascote.png";
+
+  const probe = new Image();
+  probe.onload = ()=> mascote.src = srcNovo;
+  probe.onerror = ()=> mascote.src = "mascote.png";
+  probe.src = srcNovo;
+}
+
+
+function updateUI(){
+  scoreEl.textContent = `Pontuação: ${pontuacao}`;
+  const total = desafios.length;
+  const perc = Math.min(100, Math.round((etapa-1)/total*100));
+  progressEl.style.width = perc + "%";
+}
+
+
+const desafios = [
+  { texto:"🔥 Desafio 1: Você encontra uma grande área pegando fogo.",
+    opcoes:[
+      {texto:"Tentar apagar com baldes de água", certo:false},
+      {texto:"Chamar os bombeiros florestais", certo:true},
+      {texto:"Ignorar e seguir em frente", certo:false}
+    ]},
+  { texto:"🪓 Desafio 2: Você vê tratores derrubando árvores ilegalmente.",
+    opcoes:[
+      {texto:"Tentar impedir sozinho", certo:false},
+      {texto:"Gravar vídeos e denunciar", certo:true},
+      {texto:"Fugir com medo", certo:false}
+    ]},
+  { texto:"🛢️ Desafio 3: Você encontra um rio cheio de lixo e óleo.",
+    opcoes:[
+      {texto:"Organiza uma coleta comunitária", certo:true},
+      {texto:"Tenta limpar sozinho", certo:false},
+      {texto:"Finge que não viu", certo:false}
+    ]},
+  { texto:"📚 Desafio 4: Uma escola local não ensina sobre meio ambiente.",
+    opcoes:[
+      {texto:"Conversa com os professores e oferece ajuda", certo:true},
+      {texto:"Critica a escola nas redes sociais", certo:false},
+      {texto:"Ignora, pois educação não é sua função", certo:false}
+    ]},
+  { texto:"⚡ Desafio 5: A comunidade quer instalar uma usina a carvão.",
+    opcoes:[
+      {texto:"Sugere alternativas com energia solar", certo:true},
+      {texto:"Aceita a decisão sem questionar", certo:false},
+      {texto:"Ajuda a instalar a usina de carvão", certo:false}
+    ]},
+  { texto:"🧑‍🦱 Desafio 6: Povos indígenas pedem apoio para preservar suas terras.",
+    opcoes:[
+      {texto:"Respeita e apoia seus direitos", certo:true},
+      {texto:"Ignora, pois não entende a cultura", certo:false},
+      {texto:"Apoia empresas que querem explorar as terras", certo:false}
+    ]},
+  { texto:"🌿 Desafio 7: Seus colegas estão poluindo o ar…",
+    opcoes:[
+      {texto:"Plantar árvores", certo:false},
+      {texto:"Utilizar bicicleta em vez de carro", certo:false},
+      {texto:"Queimar combustíveis fósseis como gasolina e diesel", certo:true}
+    ]},
+  { texto:"🔋 Desafio 8: Qual fonte de energia renovável você implantará?",
+    opcoes:[
+      {texto:"Carvão mineral", certo:false},
+      {texto:"Energia solar", certo:true},
+      {texto:"Gás natural", certo:false}
+    ]},
+  { texto:"💧 Desafio 9: Como as florestas ajudam na água?",
+    opcoes:[
+      {texto:"Absorvendo e filtrando a água da chuva", certo:true},
+      {texto:"Substituindo rios por poços", certo:false},
+      {texto:"E evaporando toda a água do solo", certo:false}
+    ]},
+  { texto:"🐿️ Desafio 10: Por que preservar as florestas é importante para os animais?",
+    opcoes:[
+      {texto:"Porque gostam de árvores decorativas", certo:false},
+      {texto:"Porque vivem em áreas urbanas", certo:false},
+      {texto:"Porque precisam da floresta como habitat natural", certo:true}
+    ]},
+  { texto:"🧭 Desafio 11: O que faz parte de um bom plano?",
+    opcoes:[
+      {texto:"Visitas sem controle e coleta de lembranças", certo:false},
+      {texto:"Consumir produtos conscientes e educar visitantes", certo:true},
+      {texto:"Reflorestar sem estudar o solo", certo:false}
+    ]},
+  { texto:"🧑‍🌾 Desafio 12: Como incluir moradores do entorno?",
+    opcoes:[
+      {texto:"Ensinando práticas sustentáveis", certo:true},
+      {texto:"Ceder parte da floresta para cultivo", certo:false},
+      {texto:"Permitir caça moderada", certo:false}
+    ]},
+  { texto:"📷 Desafio 13: Ferramenta para monitorar a floresta?",
+    opcoes:[
+      {texto:"Motosserras automáticas", certo:false},
+      {texto:"Robôs para cortar árvores", certo:false},
+      {texto:"Câmeras e drones de monitoramento", certo:true}
+    ]},
+  { texto:"🐾 Desafio 14: Por que proteger os animais?",
+    opcoes:[
+      {texto:"Ajudam no controle das árvores", certo:false},
+      {texto:"Podem ser usados para caça", certo:false},
+      {texto:"Mantêm o equilíbrio natural", certo:true}
+    ]},
+  { texto:"🚶 Desafio 15: Como orientar turistas?",
+    opcoes:[
+      {texto:"Criar novos caminhos livres", certo:false},
+      {texto:"Seguir apenas trilhas demarcadas", certo:true},
+      {texto:"Alimentar os animais", certo:false}
+    ]},
+  { texto:"🦜 Desafio 16: Viu pessoas armadas na floresta. O que fazer?",
+    opcoes:[
+      {texto:"Conversar com elas", certo:false},
+      {texto:"Denunciar às autoridades", certo:true},
+      {texto:"Filmar e postar", certo:false}
+    ]},
+  { texto:"🌱 Desafio 17: Como enriquecer a floresta?",
+    opcoes:[
+      {texto:"Plantar árvores nativas", certo:true},
+      {texto:"Transplantar de outra floresta", certo:false},
+      {texto:"Mudas exóticas que crescem rápido", certo:false}
+    ]},
+  { texto:"🌿 Desafio 18: Visitantes curiosos chegaram. O que garantir?",
+    opcoes:[
+      {texto:"Colher flores como lembrança", certo:false},
+      {texto:"Trazer plantas da cidade", certo:false},
+      {texto:"Não mexer na vegetação nativa", certo:true}
+    ]},
+  { texto:"🌳 Desafio 19: Após tempestade, como recuperar?",
+    opcoes:[
+      {texto:"Plantar mudas e proteger o solo", certo:true},
+      {texto:"Concretar o solo", certo:false},
+      {texto:"Usar para jogar entulho", certo:false}
+    ]},
+  { texto:"🌟 Desafio 20: Estratégia para proteção por gerações:",
+    opcoes:[
+      {texto:"Cortar árvores para ajudar a economia", certo:false},
+      {texto:"Plano de preservação + comunidade + educação", certo:true},
+      {texto:"Proibir totalmente a aproximação", certo:false}
+    ]}
+];
+
+
+startBtn.addEventListener("click", startGame);
+mascote.addEventListener("click", ()=> {
+
+  const dica = dicas[Math.floor(Math.random()*dicas.length)];
+  fala.textContent = "💡 " + dica;
+  setMascote("neutro");
+});
+
+function startGame(){
+  etapa = 1;
+  sucesso = [];
+  pontuacao = 0;
+  startBtn.style.display = "none";
+  fala.textContent = "Missão iniciada! Estou com você! 🌿";
+  setMascote("neutro");
+  updateUI();
+  mostrarEtapa();
+}
+
+function mostrarEtapa(){
+  if (etapa <= desafios.length){
+    const d = desafios[etapa-1];
+    story.textContent = d.texto;
+    choices.innerHTML = "";
+    feedback.textContent = "";
+
+    d.opcoes.forEach(op => {
+      const btn = document.createElement("button");
+      btn.textContent = op.texto;
+      btn.onclick = ()=> escolherOpcao(op.certo);
+      choices.appendChild(btn);
+    });
+  } else {
+    mostrarFinal();
+  }
+}
+
+function escolherOpcao(certo){
+  sucesso.push(certo);
+  if (certo){
+    pontuacao += 10;
+    feedback.innerHTML = `<span class="ok">✔ Boa! +10 pontos.</span>`;
+    fala.textContent = falasOk[Math.floor(Math.random()*falasOk.length)];
+    setMascote("feliz");
+  } else {
+    feedback.innerHTML = `<span class="nope">✖ Ops! Tente de novo na próxima.</span>`;
+    fala.textContent = falasNo[Math.floor(Math.random()*falasNo.length)];
+    setMascote("triste");
+  }
+  updateUI();
+
+  setTimeout(()=>{
+    etapa++;
+    setMascote("neutro");
+    mostrarEtapa();
+  }, 850);
+}
+
+function mostrarFinal(){
+  choices.innerHTML = "";
+  const acertos = sucesso.filter(Boolean).length;
+  const total = sucesso.length;
+  const msg =
+    acertos === total ? `🌟 <strong>Herói da COP 30!</strong> Você fez as melhores escolhas!`
+    : acertos >= total/2 ? `👍 Boas escolhas! Continue evoluindo.`
+    : `⚠️ Missão falhou em alguns pontos. Bora tentar de novo?`;
+
+  story.innerHTML = `${msg}<br><br>🏆 <strong>Sua pontuação: ${pontuacao} / ${desafios.length*10}</strong>`;
+
+  const restart = document.createElement("button");
+  restart.className = "restartBtn";
+  restart.textContent = "Jogar Novamente";
+  restart.onclick = ()=> location.reload();
+  choices.appendChild(restart);
+
+  fala.textContent = "Quer tentar de novo? Eu acredito em você! 🌱";
+  setMascote(acertos === total ? "feliz" : (acertos >= total/2 ? "neutro" : "triste"));
+}
+</script>
+</body>
+</html>
